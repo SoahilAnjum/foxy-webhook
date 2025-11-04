@@ -1,9 +1,12 @@
 {
   "name": "foxy-webhook",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
+  "main": "api/foxy-webhook.js",
   "scripts": {
-    "start": "vercel dev"
+    "start": "node api/foxy-webhook.js"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2"
   }
 }
