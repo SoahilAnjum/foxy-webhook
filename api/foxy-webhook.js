@@ -1,35 +1,53 @@
-import fetch from 'node-fetch';
+// api/foxy-webhook.js
+import fetch from "node-fetch";
 
 export const config = {
   api: {
-    bodyParser: true,
+    bodyParser: false, // ❌ Disable default parser — we’ll handle it manually
   },
 };
 
 export default async function handler(req, res) {
   try {
-    if (req.method !== 'POST') {
-      return res.status(405).send('Method Not Allowed');
+    if (req.method !== "POST") {
+      return res.status(405).json({ message: "Method Not Allowed" });
     }
 
-    // ✅ Ensure JSON parsing
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    console.log('Webhook received:', body);
+    // ✅ Read and safely parse raw body
+    const rawBody = await new Promise((resolve, reject) => {
+      let data = "";
+      req.on("data", (chunk) => (data += chunk));
+      req.on("end", () => resolve(data));
+      req.on("error", (err) => reject(err));
+    });
 
-    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(process.env.AIRTABLE_TABLE_NAME)}`;
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (e) {
+      console.error("Invalid JSON received:", rawBody);
+      return res.status(400).json({ message: "Invalid JSON body" });
+    }
 
-    const response = await fetch(airtableUrl, {
-      method: 'POST',
+    console.log("✅ Webhook received:", body);
+
+    // ✅ Airtable setup
+    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(
+      process.env.AIRTABLE_TABLE_NAME
+    )}`;
+
+    const airtableResponse = await fetch(airtableUrl, {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${process.env.AIRTABLE_TOKEN}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.AIRTABLE_TOKEN}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
         records: [
           {
             fields: {
-              Email: body.email || 'no-email',
-              Name: body.name || 'unknown',
+              Email: body.email || "no-email",
+              Name: body.name || "unknown",
               Timestamp: new Date().toISOString(),
             },
           },
@@ -37,16 +55,18 @@ export default async function handler(req, res) {
       }),
     });
 
-    const data = await response.json();
-    console.log('Airtable response:', data);
+    const airtableData = await airtableResponse.json();
+    console.log("Airtable response:", airtableData);
 
-    if (!response.ok) {
-      throw new Error(JSON.stringify(data));
+    if (!airtableResponse.ok) {
+      throw new Error(JSON.stringify(airtableData));
     }
 
-    res.status(200).json({ success: true, data });
+    res.status(200).json({ success: true, airtableData });
   } catch (err) {
-    console.error('❌ Webhook error:', err);
-    res.status(500).json({ message: 'Webhook processing failed', error: err.message });
+    console.error("❌ Webhook error:", err);
+    res
+      .status(500)
+      .json({ message: "Webhook processing failed", error: err.message });
   }
 }
