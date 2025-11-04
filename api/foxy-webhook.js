@@ -6,10 +6,11 @@ export default async function handler(req, res) {
       return res.status(405).send("Method Not Allowed");
     }
 
-    // === Verify signature (optional but recommended)
+    // === Verify signature (recommended)
     const signature = req.headers["x-foxy-signature"];
-    const secret = process.env.tLCMzqqrvutwil2lHldwyB1NfgkNXX6qieeQ1945;
+    const secret = process.env.FOXY_SECRET; // ✅ Correct variable name
     const rawBody = JSON.stringify(req.body);
+
     const computed = crypto
       .createHmac("sha256", secret)
       .update(rawBody)
@@ -30,8 +31,7 @@ export default async function handler(req, res) {
       embedded["fx:subscriptions"] &&
       embedded["fx:subscriptions"][0]
     ) {
-      subscriptionUrl =
-        embedded["fx:subscriptions"][0]._links.self.href;
+      subscriptionUrl = embedded["fx:subscriptions"][0]._links.self.href;
     }
 
     if (!subscriptionUrl) {
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
     const subscription = await response.json();
     console.log("✅ Subscription details:", subscription);
 
-    // === Extract customer info (if available)
+    // === Extract customer info
     let customerName = "";
     let customerEmail = "";
     if (subscription._embedded && subscription._embedded["fx:customer"]) {
@@ -64,20 +64,24 @@ export default async function handler(req, res) {
     const price = subscription.price || 0;
     const subscriptionId = subscription.id || "N/A";
 
-    // === Save to Airtable
-    const airtableUrl = `https://api.airtable.com/v0/${process.env.appGiNhbOCk0vaRLY}/${encodeURIComponent(
-      process.env.table1
+    // === Save to Airtable (using new API)
+    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(
+      process.env.AIRTABLE_TABLE_NAME
     )}`;
 
     const airtableData = {
-      fields: {
-        Name: customerName,
-        Email: customerEmail,
-        Product: productName,
-        Price: price,
-        "Subscription ID": subscriptionId,
-        "Created Date": new Date().toISOString(),
-      },
+      records: [
+        {
+          fields: {
+            Name: customerName,
+            Email: customerEmail,
+            Product: productName,
+            Price: price,
+            "Subscription ID": subscriptionId,
+            "Created Date": new Date().toISOString(),
+          },
+        },
+      ],
     };
 
     const airtableResponse = await fetch(airtableUrl, {
