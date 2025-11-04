@@ -1,0 +1,9 @@
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/foxy-webhook.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/foxy-webhook", "dest": "/api/foxy-webhook.js" }
+  ]
+}
