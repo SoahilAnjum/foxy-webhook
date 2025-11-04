@@ -1,12 +1,19 @@
 import fetch from 'node-fetch';
 
+export const config = {
+  api: {
+    bodyParser: true,
+  },
+};
+
 export default async function handler(req, res) {
   try {
     if (req.method !== 'POST') {
       return res.status(405).send('Method Not Allowed');
     }
 
-    const body = req.body;
+    // ✅ Ensure JSON parsing
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     console.log('Webhook received:', body);
 
     const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(process.env.AIRTABLE_TABLE_NAME)}`;
