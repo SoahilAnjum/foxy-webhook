@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
     // === Verify signature (optional but recommended)
     const signature = req.headers["x-foxy-signature"];
-    const secret = process.env.FOXY_ENCRYPTION_KEY;
+    const secret = process.env.tLCMzqqrvutwil2lHldwyB1NfgkNXX6qieeQ1945;
     const rawBody = JSON.stringify(req.body);
     const computed = crypto
       .createHmac("sha256", secret)
@@ -65,8 +65,8 @@ export default async function handler(req, res) {
     const subscriptionId = subscription.id || "N/A";
 
     // === Save to Airtable
-    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(
-      process.env.AIRTABLE_TABLE
+    const airtableUrl = `https://api.airtable.com/v0/${process.env.appGiNhbOCk0vaRLY}/${encodeURIComponent(
+      process.env.table1
     )}`;
 
     const airtableData = {
