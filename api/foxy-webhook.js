@@ -37,9 +37,7 @@ export default async function handler(req, res) {
 });
 
     // ✅ Airtable setup
-    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(
-      process.env.AIRTABLE_TABLE_NAME
-    )}`;
+    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(process.env.AIRTABLE_TABLE_NAME)}`;
 
     const airtableResponse = await fetch(airtableUrl, {
       method: "POST",
