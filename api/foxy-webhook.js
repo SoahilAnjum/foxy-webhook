@@ -1,16 +1,16 @@
-import Airtable from 'airtable';
 import formidable from 'formidable';
-import fs from 'fs';
+import Airtable from 'airtable';
 
 export const config = {
   api: {
-    bodyParser: false, // disable body parser to handle form-data
+    bodyParser: false,
   },
 };
 
-const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
-  process.env.AIRTABLE_BASE_ID
-);
+// Initialize Airtable with OAuth token
+const base = new Airtable({
+  apiKey: process.env.AIRTABLE_TOKEN,
+}).base(process.env.AIRTABLE_BASE_ID);
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -18,22 +18,20 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Parse the form-data from Foxy
+    // Parse multipart form data
     const form = formidable({ multiples: true });
     const data = await new Promise((resolve, reject) => {
-      form.parse(req, (err, fields, files) => {
+      form.parse(req, (err, fields) => {
         if (err) reject(err);
         else resolve(fields);
       });
     });
 
-    // Foxy sends "FoxyData" field containing the actual JSON string
     const foxyDataRaw = data.FoxyData;
     if (!foxyDataRaw) {
       return res.status(400).json({ error: 'No FoxyData found in request' });
     }
 
-    // Try parsing the FoxyData as JSON
     let foxyData;
     try {
       foxyData = JSON.parse(foxyDataRaw);
@@ -41,7 +39,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid FoxyData JSON' });
     }
 
-    // ✅ Save the parsed Foxy data into Airtable
+    // Save record to Airtable
     await base('Subscriptions').create([
       {
         fields: {
