@@ -30,6 +30,11 @@ export default async function handler(req, res) {
     }
 
     console.log("✅ Webhook received:", body);
+    console.log("🔍 Airtable Debug:", {
+  base: process.env.AIRTABLE_BASE_ID,
+  table: process.env.AIRTABLE_TABLE_NAME,
+  token: process.env.AIRTABLE_TOKEN ? "✅ Present" : "❌ Missing"
+});
 
     // ✅ Airtable setup
     const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(
