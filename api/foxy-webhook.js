@@ -1,91 +1,62 @@
-// api/foxy-webhook.js
-import fetch from "node-fetch";
+import Airtable from 'airtable';
+import formidable from 'formidable';
+import fs from 'fs';
 
 export const config = {
-  api: { bodyParser: false },
+  api: {
+    bodyParser: false, // disable body parser to handle form-data
+  },
 };
 
+const base = new Airtable({ apiKey: process.env.AIRTABLE_API_KEY }).base(
+  process.env.AIRTABLE_BASE_ID
+);
+
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    if (req.method !== "POST") {
-      return res.status(405).json({ message: "Method Not Allowed" });
-    }
-
-    // Read raw body
-    const rawBody = await new Promise((resolve, reject) => {
-      let data = "";
-      req.on("data", (chunk) => (data += chunk));
-      req.on("end", () => resolve(data));
-      req.on("error", (err) => reject(err));
+    // Parse the form-data from Foxy
+    const form = formidable({ multiples: true });
+    const data = await new Promise((resolve, reject) => {
+      form.parse(req, (err, fields, files) => {
+        if (err) reject(err);
+        else resolve(fields);
+      });
     });
 
-    let body;
+    // Foxy sends "FoxyData" field containing the actual JSON string
+    const foxyDataRaw = data.FoxyData;
+    if (!foxyDataRaw) {
+      return res.status(400).json({ error: 'No FoxyData found in request' });
+    }
+
+    // Try parsing the FoxyData as JSON
+    let foxyData;
     try {
-      body = JSON.parse(rawBody);
-    } catch (e) {
-      console.error("Invalid JSON:", rawBody);
-      return res.status(400).json({ message: "Invalid JSON body" });
+      foxyData = JSON.parse(foxyDataRaw);
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid FoxyData JSON' });
     }
 
-    console.log("✅ Webhook received from Foxy:");
-    console.log(JSON.stringify(body, null, 2));
-
-    // Extract customer + subscription info
-    const customer =
-      body._embedded && body._embedded["fx:customer"]
-        ? body._embedded["fx:customer"]
-        : {};
-    const subscription =
-      body._embedded && body._embedded["fx:subscription"]
-        ? body._embedded["fx:subscription"]
-        : {};
-
-    const name = customer.first_name || "Unknown";
-    const email = customer.email || "No email";
-    const product = subscription.item_name || "N/A";
-    const price = subscription.price || "N/A";
-
-    console.log("🧾 Extracted data:", { name, email, product, price });
-
-    // Send to Airtable
-    const airtableUrl = `https://api.airtable.com/v0/${process.env.AIRTABLE_BASE_ID}/${encodeURIComponent(
-      process.env.AIRTABLE_TABLE_NAME
-    )}`;
-
-    const response = await fetch(airtableUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.AIRTABLE_TOKEN}`,
-        "Content-Type": "application/json",
+    // ✅ Save the parsed Foxy data into Airtable
+    await base('Subscriptions').create([
+      {
+        fields: {
+          TransactionID: foxyData.id || '',
+          CustomerEmail: foxyData.customer_email || '',
+          Total: foxyData.total_order || '',
+          Status: foxyData.status || '',
+          RawData: JSON.stringify(foxyData),
+        },
       },
-      body: JSON.stringify({
-        records: [
-          {
-            fields: {
-              Name: name,
-              Email: email,
-              Product: product,
-              Price: price,
-              Timestamp: new Date().toISOString(),
-            },
-          },
-        ],
-      }),
-    });
+    ]);
 
-    const airtableData = await response.json();
-    console.log("Airtable API Response:", airtableData);
-
-    if (!response.ok) {
-      throw new Error(JSON.stringify(airtableData));
-    }
-
-    res.status(200).json({ success: true });
+    return res.status(200).json({ success: true });
   } catch (err) {
-    console.error("❌ Webhook error:", err);
-    res.status(500).json({
-      message: "Webhook processing failed",
-      error: err.message,
-    });
+    console.error('Webhook error:', err);
+    return res.status(500).json({ error: 'Internal Server Error' });
   }
 }
